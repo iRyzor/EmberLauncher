@@ -41,6 +41,9 @@ jobs:
         run: npm run package
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
+      - name: Package portable archive
+        if: runner.os != 'macOS'
+        run: python tools/package_portable.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ember-${{ matrix.os }}
@@ -49,6 +52,8 @@ jobs:
             src-tauri/target/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.exe
             src-tauri/target/release/bundle/**/*.dmg
+            release/*.tar.gz
+            release/*.zip
           if-no-files-found: error
 
   linux-runtime:
