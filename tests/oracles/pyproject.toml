@@ -1,0 +1,10 @@
+[project]
+name = "ember-test-oracles"
+version = "0.7.3"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=43",
+    "platformdirs>=4",
+    "psutil>=6",
+    "send2trash>=1.8",
+]

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ember Launcher",
+  "version": "0.10.0",
+  "identifier": "io.ember.stove.launcher",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5178",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Ember Launcher",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 1000,
+        "minHeight": 680,
+        "backgroundColor": "#111214"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: https://d2x8kymwjom7h7.cloudfront.net; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": {
+      "../engine/native/pipe-bridge.exe": "native/pipe-bridge.exe",
+      "engine/": "engine/",
+      "../engine/native/webview-probe.exe": "native/webview-probe.exe"
+    },
+    "shortDescription": "Launcher independiente para Chaos Zero Nightmare",
+    "category": "Game",
+    "icon": ["icons/icon.png"]
+  }
+}

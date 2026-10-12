@@ -1,0 +1,79 @@
+name: Desktop compatibility
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: uv python install 3.11
+      - run: uv sync --project tests/oracles --python 3.11 --locked
+      - run: npm ci
+      - run: cargo test --manifest-path engine/native-protocol/Cargo.toml
+      - name: Build private Rust engine
+        run: npm run engine:build
+      - name: Smoke-test packaged engine
+        run: uv run --project tests/oracles python tools/check_package.py
+      - name: Test news reader
+        run: npm run test:ui
+      - name: Test platform engine
+        run: npm run test:engine
+      - name: Package desktop
+        run: npm run package
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ember-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.dmg
+          if-no-files-found: error
+
+  linux-runtime:
+    name: AppImage runtime (${{ matrix.image }})
+    needs: desktop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu:22.04, debian:12]
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Install runtime and virtual display
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 libwebkit2gtk-4.1-0 libgtk-3-0 libayatana-appindicator3-1 xvfb xauth dbus-x11
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ember-ubuntu-22.04
+          path: artifacts
+      - name: Check extracted engine and desktop startup
+        run: dbus-run-session -- xvfb-run -a python3 tools/check_appimage.py artifacts --desktop
+        env:
+          GDK_BACKEND: x11
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+          # Container-only headless check; production launcher retains its sandbox.
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'

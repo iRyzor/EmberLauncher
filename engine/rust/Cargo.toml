@@ -1,0 +1,37 @@
+[package]
+name = "ember-engine"
+version = "0.10.0"
+edition = "2021"
+[lib]
+name = "ember_engine"
+[dependencies]
+ember-protocol = { path = "../native-protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = "0.10"
+md-5 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+zeroize = "1"
+rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
+libc = "0.2"
+fs2 = "0.4"
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+tempfile = "3"
+cap-std = "3"
+cap-fs-ext = "3"
+sysinfo = "0.33"
+trash = "5"
+directories = "6"
+which = "7"
+unicode-casefold = "0.2"
+tiny_http = "0.12"
+flate2 = "1"
+sys-locale = "0.3"
+iana-time-zone = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }

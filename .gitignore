@@ -1,0 +1,38 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/engine/
+.engine-build/
+tests/oracles/.venv/
+**/__pycache__/
+.platform-tests/
+.ember-wine-probe-*/
+engine/native-protocol/target/
+tests/oracles/runtime/*.so
+tests/oracles/runtime/*.dll
+tests/oracles/runtime/*.dylib
+
+# Paquetes y cachés locales
+release/
+.ruff_cache/
+.pytest_cache/
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Esquemas generados por Tauri
+src-tauri/gen/
+
+.validation-runs/
+
+engine/rust/target/
+
+# Artefactos antiguos de desarrollo, excluidos de producción
+engine/.venv/
+engine/runtime/*.so
+engine/runtime/*.dll
+engine/runtime/*.dylib
