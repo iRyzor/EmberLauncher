@@ -1,4 +1,5 @@
-import { version as launcherVersion } from "../package.json";
+import packageMetadata from "../package.json" with { type: "json" };
+const launcherVersion = packageMetadata.version;
 import { t, localizeMessage, setLocale, formatNumber } from "./i18n";
 import { useLocale } from "./useLocale";
 import React, { useState, useEffect, useRef } from "react";
