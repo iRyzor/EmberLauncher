@@ -10,11 +10,13 @@ Ember's desktop interface and the game's runtime have separate requirements. Cha
 
 ## Current download packages
 
+Linux CI builds target Ubuntu 22.04 (glibc 2.35 or newer), with AppImage startup checks configured for Ubuntu 22.04 and Debian 12. Consult the release notes for the result of those checks; they do not verify game execution in either container.
+
 The retained `v0.10.0` Linux packages were built locally and require **glibc 2.44 or newer**. They are not validated for older distributions, including Ubuntu 22.04 or Debian 12. AppImage still requires a compatible glibc and the required host libraries.
 
 Windows packages are unsigned. The NSIS installer can download the official WebView2 bootstrapper. The portable ZIP requires WebView2 to be installed already and must be extracted in full.
 
-New source changes are not included in an existing release unless new artifacts are published. Check the release notes before downloading. GitHub Actions builds will be used for future packages once available; the configured CI platform matrix does not itself prove runtime compatibility.
+New source changes are not included in an existing release unless new artifacts are published. Check the release notes before downloading. GitHub Actions produces new packages; the configured CI platform matrix does not itself prove game compatibility.
 
 ## Known limits
 

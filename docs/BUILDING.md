@@ -42,7 +42,7 @@ npm run engine:build
 npm run package
 ```
 
-Tauri writes packages under `src-tauri/target/release/bundle/`. To produce a Linux portable archive:
+Tauri writes packages under `src-tauri/target/release/bundle/`. To produce a Linux TAR or Windows ZIP portable archive after building:
 
 ```sh
 python tools/package_portable.py
@@ -52,4 +52,4 @@ Use a native build host for each platform when possible. Windows cross compilati
 
 ## Automation
 
-`.github/workflows/build.yml` builds Linux, Windows and both macOS architectures, runs checks and uploads artifacts. It also configures isolated Linux AppImage checks. Published-release notes must describe the checks that actually ran, rather than assuming the full platform matrix passed.
+`.github/workflows/build.yml` builds Linux, Windows and both macOS architectures, runs checks and uploads artifacts, including Linux and Windows portable archives. It also configures isolated Linux AppImage checks. Published-release notes must describe the checks that actually ran, rather than assuming the full platform matrix passed.

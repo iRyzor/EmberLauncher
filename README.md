@@ -36,7 +36,7 @@ Ember downloads the official startup files. The game downloads its additional co
 | Windows x64 | Setup `.exe`, portable `.zip` | Experimental; testing on Windows hardware is pending |
 | macOS | No current package | Experimental source support |
 
-The current Linux packages require **glibc 2.44 or newer**, GTK3, WebKitGTK 4.1 and Wine. An AppImage does not remove the glibc requirement. Future CI packages may have different requirements; check each release's notes.
+Linux CI packages target **Ubuntu 22.04 (glibc 2.35 or newer)** and require GTK3, WebKitGTK 4.1 and Wine. CI checks AppImage startup on Ubuntu 22.04 and Debian 12; see each release's notes for completed checks. An AppImage does not remove the glibc requirement. The older, locally built **v0.10.0** packages require glibc 2.44 or newer.
 
 Windows needs **Microsoft Edge WebView2 Runtime**. The setup installer can download it when needed. Portable packages must be extracted in full; keep the executable, engine and native helpers together. Current Windows builds are unsigned.
 
