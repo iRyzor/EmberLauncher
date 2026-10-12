@@ -1,3 +1,4 @@
+import { version as launcherVersion } from "../package.json";
 import { t, localizeMessage, setLocale, formatNumber } from "./i18n";
 import { useLocale } from "./useLocale";
 import React, { useState, useEffect, useRef } from "react";
@@ -1482,7 +1483,7 @@ function App() {
               <Flame size={22} />
               <div>
                 <strong>
-                  Ember Launcher <span>0.10.0 · Beta</span>
+                  Ember Launcher <span>{launcherVersion} · Beta</span>
                 </strong>
                 <p className="creator-credit">
                   {t("Desarrollado por")}{" "}
@@ -1512,7 +1513,7 @@ function App() {
             {status}
           </span>
           <span>
-            EMBER LAUNCHER <b>0.10.0</b>
+            EMBER LAUNCHER <b>{launcherVersion}</b>
             <a
               className="footer-credit"
               href="https://github.com/iRyzor"
