@@ -1,10 +1,62 @@
 /* Duplex Win32 byte pipe <-> inherited binary stdin/stdout. No account logs. */
+#include <winsock2.h>
 #include <windows.h>
+#include <iphlpapi.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <wchar.h>
 #include <fcntl.h>
 #include <io.h>
+
+/* Recover only Wine's network inventory driver. Never collect adapter addresses. */
+static BOOL under_wine(void) {
+    return GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "wine_get_version") != NULL;
+}
+
+static DWORD network_status(void) {
+    ULONG size = 0;
+    DWORD result = GetAdaptersInfo(NULL, &size);
+    if ((result == ERROR_BUFFER_OVERFLOW || result == ERROR_SUCCESS) && size > 0) return ERROR_SUCCESS;
+    return result == ERROR_SUCCESS ? ERROR_NO_DATA : result;
+}
+
+static DWORD prepare_network(void) {
+    DWORD result = network_status();
+    if (result == ERROR_SUCCESS || !under_wine() ||
+        (result != ERROR_FILE_NOT_FOUND && result != ERROR_PATH_NOT_FOUND)) return result;
+    SC_HANDLE manager = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+    if (!manager) return GetLastError();
+    SC_HANDLE service = OpenServiceW(manager, L"nsiproxy", SERVICE_START | SERVICE_QUERY_STATUS);
+    if (!service) { result = GetLastError(); CloseServiceHandle(manager); return result; }
+    ULONGLONG deadline = GetTickCount64() + 8000;
+    do {
+        BOOL started = StartServiceW(service, 0, NULL);
+        result = started ? ERROR_SUCCESS : GetLastError();
+        if (result != ERROR_SERVICE_DATABASE_LOCKED &&
+            result != ERROR_SERVICE_CANNOT_ACCEPT_CTRL &&
+            result != ERROR_SERVICE_REQUEST_TIMEOUT) break;
+        if (GetTickCount64() >= deadline) break;
+        Sleep(100);
+    } while (GetTickCount64() < deadline);
+    if (result == ERROR_SUCCESS || result == ERROR_SERVICE_ALREADY_RUNNING) {
+        do {
+            result = network_status();
+            if (result == ERROR_SUCCESS) break;
+            SERVICE_STATUS_PROCESS status;
+            DWORD bytes = 0;
+            if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, (BYTE *)&status,
+                                      sizeof(status), &bytes)) { result = GetLastError(); break; }
+            if (status.dwCurrentState == SERVICE_STOPPED) {
+                result = status.dwWin32ExitCode ? status.dwWin32ExitCode : ERROR_SERVICE_NOT_ACTIVE;
+                break;
+            }
+            Sleep(100);
+        } while (GetTickCount64() < deadline);
+    }
+    CloseServiceHandle(service);
+    CloseServiceHandle(manager);
+    return result;
+}
 
 typedef struct { HANDLE pipe; HANDLE stop; DWORD timeout; } Bridge;
 
@@ -64,10 +116,24 @@ static DWORD WINAPI input_thread(void *context) {
 }
 
 int wmain(int argc, wchar_t **argv) {
+    if (argc == 2 && (!wcscmp(argv[1], L"--check-network") ||
+                      !wcscmp(argv[1], L"--prepare-network"))) {
+        DWORD result = !wcscmp(argv[1], L"--prepare-network") ? prepare_network() : network_status();
+        if (result == ERROR_SUCCESS) puts("NETWORK_READY");
+        else printf("NETWORK_ERROR=%lu\n", result);
+        return result == ERROR_SUCCESS ? 0 : 6;
+    }
     wchar_t *end = NULL;
     long seconds = argc == 3 ? wcstol(argv[2], &end, 10) : 0;
     if (argc != 3 || !end || *end || seconds < 1 || seconds > 300 ||
         wcsncmp(argv[1], L"\\\\.\\pipe\\", 9) || wcslen(argv[1]) > 240) return 2;
+    if (under_wine()) {
+        DWORD result = prepare_network();
+        if (result != ERROR_SUCCESS) {
+            fprintf(stderr, "NETWORK_ERROR=%lu\n", result);
+            return 6;
+        }
+    }
     HANDLE pipe = CreateNamedPipeW(argv[1], PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
         FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE |
         PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 65535, 65535, 0, NULL);

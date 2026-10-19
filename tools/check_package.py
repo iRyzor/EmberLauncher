@@ -24,3 +24,11 @@ with tempfile.TemporaryDirectory(prefix="ember-package-check-") as folder:
     assert responses[0]["platform"] == sys.platform
     assert not (temporary / "missing-library").exists()
 print("Bundled engine state/shutdown: OK; no account or game accessed")
+
+if sys.platform == "win32":
+    bridge = root / "engine/native/pipe-bridge.exe"
+    for option in ("--check-network", "--prepare-network"):
+        probe = subprocess.run([str(bridge), option], text=True, capture_output=True, timeout=15)
+        assert probe.returncode == 0 and probe.stdout.strip() == "NETWORK_READY"
+        assert not probe.stderr
+    print("Native Windows network diagnostics: ready; no identity values emitted")

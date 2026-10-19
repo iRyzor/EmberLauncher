@@ -53,3 +53,19 @@ Use a native build host for each platform when possible. Windows cross compilati
 ## Automation
 
 `.github/workflows/build.yml` builds Linux, Windows and both macOS architectures, runs checks and uploads artifacts, including Linux and Windows portable archives. It also configures isolated Linux AppImage checks. Published-release notes must describe the checks that actually ran, rather than assuming the full platform matrix passed.
+
+## Wine network recovery check
+
+On Linux with Wine and the MinGW x86_64 compiler installed, run:
+
+```sh
+python tools/check_wine_network.py
+```
+
+This opt-in check replays Win32 API failures against the production bridge code in a disposable Wine prefix. It verifies recovery before pipe creation, handling of transient service locks, refusal to proceed when recovery fails, and that native Windows startup skips Wine recovery. API responses are simulated; no services are stopped or reconfigured, and this does not replace a real game test. It never uses an existing prefix, account or game installation.
+
+To rebuild the shipped bridge after changing its C source:
+
+```sh
+x86_64-w64-mingw32-gcc -std=c11 -O2 -Wall -Wextra -Werror -municode -static -s -Wl,--no-insert-timestamp engine/native/pipe_bridge.c -o engine/native/pipe-bridge.exe -liphlpapi -ladvapi32
+```

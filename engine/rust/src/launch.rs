@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
+const NETWORK_ERROR: &str = "Wine no pudo preparar el servicio de red necesario para iniciar el juego.";
+
 fn information(tokens: &Value, received: u64) -> Value {
     let mut info = json!({"game_id":GAME,"access_token":tokens["access_token"],"refresh_token":tokens["refresh_token"],"env":"live","gds_isdefault_yn":"n","gds_nation":"DO","gds_regulation":"ETC","gds_timezone":"America/Santo_Domingo","gds_utcoffset":"-240","language":"en"});
     for (source, target) in [
@@ -220,7 +222,16 @@ impl Launcher {
                 &local_stop,
             );
             if result.is_err() && !local_stop.load(Ordering::Relaxed) {
-                status(&local_state,"launch_error","Falló el arranque o el intercambio local con el SDK. Los tokens no se muestran.",0);
+                let detail = if result
+                    .as_ref()
+                    .err()
+                    .is_some_and(|error| error.message == NETWORK_ERROR)
+                {
+                    NETWORK_ERROR
+                } else {
+                    "Falló el arranque o el intercambio local con el SDK. Los tokens no se muestran."
+                };
+                status(&local_state, "launch_error", detail, 0);
             }
             let _ = tx.send(());
         });
@@ -349,6 +360,12 @@ fn worker(
                     .filter(|b| **b != b'\r')
                     .copied()
                     .collect();
+                if clean
+                    .split(|byte| *byte == b'\n')
+                    .any(|line| line.starts_with(b"NETWORK_ERROR="))
+                {
+                    return Err(Error::new(NETWORK_ERROR));
+                }
                 if clean.windows(11).any(|w| w == b"PIPE_READY\n") {
                     break;
                 }
@@ -448,5 +465,41 @@ impl Launcher {
             done,
             thread: None,
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod network_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn fragmented_network_failure_blocks_game_before_launch_without_exposing_details() {
+        let temp = tempfile::tempdir().unwrap();
+        let runner = temp.path().join("runner");
+        std::fs::write(
+            &runner,
+            "#!/bin/sh\nprintf 'Wine startup notice\\nNETWORK_' >&2\nsleep 0.05\nprintf 'ERROR=1058\\n' >&2\nexit 6\n",
+        ).unwrap();
+        std::fs::set_permissions(&runner, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let installation = Installation {
+            root: temp.path().join("absent-library"),
+            prefix: temp.path().to_owned(),
+        };
+        let state = Arc::new(Mutex::new(json!({})));
+        let stop = Arc::new(AtomicBool::new(false));
+        let error = worker(
+            &installation,
+            runner.to_str().unwrap(),
+            &temp.path().join("helper.exe"),
+            json!({"access_token":"synthetic-access", "refresh_token":"synthetic-refresh"}),
+            0,
+            &state,
+            &stop,
+        ).unwrap_err();
+        assert_eq!(error.message, NETWORK_ERROR);
+        assert!(!error.message.contains("1058"));
+        assert!(!error.message.contains("synthetic"));
+        assert!(!installation.root.exists());
     }
 }

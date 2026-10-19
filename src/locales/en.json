@@ -479,5 +479,6 @@
   "No se pudo abrir el enlace en el navegador.": "Could not open the link in your browser.",
   "¡Acaba con toda desesperación!": "Zero Out All Despair!",
   "Launcher independiente": "Independent launcher",
-  "Desarrollado por": "Developed by"
+  "Desarrollado por": "Developed by",
+  "Wine no pudo preparar el servicio de red necesario para iniciar el juego.": "Wine could not prepare the network service required to start the game."
 }
