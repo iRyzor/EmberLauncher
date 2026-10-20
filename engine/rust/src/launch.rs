@@ -19,7 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
-const NETWORK_ERROR: &str = "Wine no pudo preparar el servicio de red necesario para iniciar el juego.";
+const NETWORK_ERROR: &str =
+    "Wine no pudo preparar el servicio de red necesario para iniciar el juego.";
 
 fn information(tokens: &Value, received: u64) -> Value {
     let mut info = json!({"game_id":GAME,"access_token":tokens["access_token"],"refresh_token":tokens["refresh_token"],"env":"live","gds_isdefault_yn":"n","gds_nation":"DO","gds_regulation":"ETC","gds_timezone":"America/Santo_Domingo","gds_utcoffset":"-240","language":"en"});
@@ -162,7 +163,7 @@ impl Launcher {
         )?;
         i.executable()?;
         require(
-            helper.is_file() && (cfg!(windows) || which::which(&runner).is_ok()),
+            helper.is_file() && (cfg!(windows) || crate::runtime::resolve(&runner).is_some()),
             "Falta el ejecutable Wine o el componente de comunicación.",
         )?;
         let users = if cfg!(windows) {
@@ -496,7 +497,8 @@ mod network_tests {
             0,
             &state,
             &stop,
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(error.message, NETWORK_ERROR);
         assert!(!error.message.contains("1058"));
         assert!(!error.message.contains("synthetic"));
