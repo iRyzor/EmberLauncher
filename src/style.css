@@ -711,7 +711,9 @@ footer b {
   color: #a0a6b0;
   margin: 20px 0;
 }
-.settings-card input {
+.settings-card input,
+.settings-card select,
+.settings-card textarea {
   width: 100%;
   display: block;
   background: #121317;
@@ -723,6 +725,17 @@ footer b {
     monospace;
   padding: 13px;
   margin-top: 9px;
+}
+.settings-card textarea {
+  width: 100%;
+  display: block;
+  resize: vertical;
+}
+.settings-card label small {
+  display: block;
+  margin-top: 6px;
+  color: #7c828d;
+  font-size: 10px;
 }
 .settings-footer {
   display: flex;

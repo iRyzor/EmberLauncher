@@ -3,6 +3,15 @@
     "targets": [
       "deb",
       "appimage"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "recommends": [
+          "libfreetype6:i386",
+          "libgnutls30t64:i386 | libgnutls30:i386"
+        ],
+        "postInstallScript": "packaging/postinst.sh"
+      }
+    }
   }
 }

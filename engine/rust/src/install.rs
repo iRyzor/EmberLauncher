@@ -133,6 +133,44 @@ pub fn default_root() -> PathBuf {
 pub fn settings() -> Value {
     fs::json(&config().join("settings.json")).unwrap_or(json!({}))
 }
+/// Parses `KEY=VALUE` lines (blank lines and `#` comments ignored).
+pub fn parse_env(text: &str) -> Result<Vec<(String, String)>> {
+    let mut vars = Vec::new();
+    for line in text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+    {
+        let (key, value) = line.split_once('=').ok_or_else(|| {
+            Error::new("Cada variable de entorno debe tener el formato NOMBRE=valor.")
+        })?;
+        let key = key.trim();
+        require(
+            !key.is_empty()
+                && !key.starts_with(|c: char| c.is_ascii_digit())
+                && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'),
+            "Nombre de variable de entorno no válido.",
+        )?;
+        require(
+            key != "WINEPREFIX",
+            "WINEPREFIX lo gestiona Ember; cambia el prefijo en Ajustes.",
+        )?;
+        vars.push((key.into(), value.trim().into()));
+    }
+    Ok(vars)
+}
+pub fn extra_env() -> Vec<(String, String)> {
+    settings()["env"]
+        .as_str()
+        .and_then(|text| parse_env(text).ok())
+        .unwrap_or_default()
+}
+pub fn save_env(text: &str) -> Result<()> {
+    parse_env(text)?;
+    let mut value = settings();
+    value["env"] = json!(text);
+    fs::atomic_json(&config().join("settings.json"), &value)
+}
 pub fn save_settings(installation: &Installation, runner: &str) -> Result<()> {
     let mut value = settings();
     value["root"] = json!(installation.root);

@@ -53,8 +53,8 @@ impl Engine {
         let runner = std::env::var("EMBER_WINE_RUNNER").unwrap_or_else(|_| {
             settings["runner"]
                 .as_str()
-                .unwrap_or(if cfg!(windows) { "native" } else { "wine" })
-                .into()
+                .map(String::from)
+                .unwrap_or_else(runtime::default_runner)
         });
         let installation = Installation::discover(&root).ok();
         let local = updates::installed(installation.as_ref())
@@ -250,7 +250,7 @@ impl Engine {
             default.parent().and_then(Path::parent)
         };
         let region = crate::region::Region::load();
-        json!({"remember_session":self.remember_session,"account_warning":self.account_warning,"country":region.country,"system_language":region.language,"phase":phase,"detail":detail,"image":self.image,"connected":self.session.is_some(),"reauth_required":self.reauth,"version":self.local["distribution_version"],"updates":self.updates,"job":self.job,"prepared":self.prepared.is_some(),"resumable_download":download::pending(i,&self.staging),"prepared_summary":review,"recovery_needed":updates::recovery(i),"root":self.root,"suggested_prefix":suggested,"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"native_game":cfg!(windows),"runtime_prefix":i.map(|i|&i.prefix),"game_directory":i.map(Installation::game),"runner":self.runner,"game_installed":game_installed,"fresh_destination":i.is_some_and(|i|!i.game().exists()),"game_running":running,"game_starting":starting})
+        json!({"remember_session":self.remember_session,"account_warning":self.account_warning,"country":region.country,"system_language":region.language,"phase":phase,"detail":detail,"image":self.image,"connected":self.session.is_some(),"reauth_required":self.reauth,"version":self.local["distribution_version"],"updates":self.updates,"job":self.job,"prepared":self.prepared.is_some(),"resumable_download":download::pending(i,&self.staging),"prepared_summary":review,"recovery_needed":updates::recovery(i),"root":self.root,"suggested_prefix":suggested,"platform":if cfg!(windows){"win32"}else if cfg!(target_os="macos"){"darwin"}else{"linux"},"native_game":cfg!(windows),"runtime_prefix":i.map(|i|&i.prefix),"game_directory":i.map(Installation::game),"runner":self.runner,"runners":if cfg!(windows){vec![]}else{runtime::runners().into_iter().map(|(n,p,k)|json!({"name":n,"path":p,"kind":k})).collect()},"env":install::settings()["env"].as_str().unwrap_or(""),"game_installed":game_installed,"fresh_destination":i.is_some_and(|i|!i.game().exists()),"game_running":running,"game_starting":starting})
     }
     fn select(&mut self, i: Installation, runner: String) -> Result<()> {
         let local = updates::installed(Some(&i))?;
@@ -446,9 +446,12 @@ impl Engine {
                     "Desconecta la cuenta antes de cambiar la instalación.",
                 )?;
                 require(
-                    cfg!(windows) || which::which(&runner).is_ok(),
+                    cfg!(windows) || runtime::resolve(&runner).is_some(),
                     "No se encontró el ejecutable Wine indicado.",
                 )?;
+                if let Some(env) = payload["env"].as_str() {
+                    install::parse_env(env)?;
+                }
                 let i = if action == "new_installation" {
                     let i = Installation::fresh(Path::new(&root))?;
                     if let Some(old) = &self.installation {
@@ -463,6 +466,9 @@ impl Engine {
                     i
                 };
                 self.select(i, runner)?;
+                if let Some(env) = payload["env"].as_str() {
+                    install::save_env(env)?;
+                }
             }
             "restore_account"
             | "renew_session"
@@ -513,6 +519,10 @@ impl Engine {
                     require(
                         !text(payload, "prefix").is_empty() && !text(payload, "runner").is_empty(),
                         "Indica la carpeta del prefijo nuevo y el ejecutable Wine.",
+                    )?;
+                    require(
+                        cfg!(windows) || runtime::resolve(&text(payload, "runner")).is_some(),
+                        "No se encontró el ejecutable Wine indicado.",
                     )?;
                     self.image = None;
                 }

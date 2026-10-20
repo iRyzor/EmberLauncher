@@ -14,10 +14,15 @@ pub fn command(runner: &str, prefix: &Path, exe: impl AsRef<std::ffi::OsStr>) ->
     let mut c = if cfg!(windows) {
         Command::new(exe)
     } else {
-        let mut c = Command::new(runner);
+        let dist = proton_dist(Path::new(runner));
+        let mut c = Command::new(resolve(runner).unwrap_or_else(|| runner.into()));
         c.arg(exe)
             .env("WINEPREFIX", prefix)
             .env("WINEDEBUG", "-all");
+        if let Some(dist) = dist {
+            proton_env(&mut c, &dist);
+        }
+        c.envs(crate::install::extra_env());
         c
     };
     c.stdin(Stdio::null())
@@ -29,6 +34,159 @@ pub fn command(runner: &str, prefix: &Path, exe: impl AsRef<std::ffi::OsStr>) ->
         c.creation_flags(0x08000000);
     }
     c
+}
+/// Proton's `dist` directory (`files` or `dist`) for a Proton install directory
+/// or the `bin/wine` executable inside one.
+fn proton_dist(path: &Path) -> Option<PathBuf> {
+    let dist = if path.is_dir() {
+        ["files", "dist"]
+            .iter()
+            .map(|n| path.join(n))
+            .find(|d| d.join("bin/wine").is_file())?
+    } else if path.file_name()? == "wine" && path.parent()?.file_name()? == "bin" {
+        path.parent()?.parent()?.to_path_buf()
+    } else {
+        return None;
+    };
+    (dist.join("bin/wine").is_file() && dist.join("lib/wine").is_dir()).then_some(dist)
+}
+fn proton_env(c: &mut Command, dist: &Path) {
+    let lib = dist.join("lib");
+    let join = |paths: Vec<PathBuf>, old: Option<std::ffi::OsString>| {
+        let mut all = paths;
+        all.extend(old.iter().flat_map(std::env::split_paths));
+        std::env::join_paths(all).unwrap_or_default()
+    };
+    c.env(
+        "LD_LIBRARY_PATH",
+        join(
+            vec![lib.join("x86_64-linux-gnu"), lib.join("i386-linux-gnu")],
+            std::env::var_os("LD_LIBRARY_PATH"),
+        ),
+    )
+    .env(
+        "WINEDLLPATH",
+        join(
+            vec![lib.join("vkd3d"), lib.join("wine")],
+            std::env::var_os("WINEDLLPATH"),
+        ),
+    )
+    .env(
+        "PATH",
+        join(vec![dist.join("bin")], std::env::var_os("PATH")),
+    );
+}
+/// Wine executable for a runner: a Proton directory, a path, or a name on `PATH`.
+pub fn resolve(runner: &str) -> Option<PathBuf> {
+    match proton_dist(Path::new(runner)) {
+        Some(dist) => Some(dist.join("bin/wine")),
+        None => which::which(runner).ok(),
+    }
+}
+/// `wine` when available, otherwise the preferred detected Proton build.
+pub fn default_runner() -> String {
+    if cfg!(windows) {
+        return "native".into();
+    }
+    if which::which("wine").is_ok() {
+        return "wine".into();
+    }
+    let runners = runners();
+    runners
+        .iter()
+        .rev()
+        .find(|(n, _, _)| n.contains("GE"))
+        .or(runners.first())
+        .map_or("wine".into(), |(_, p, _)| p.to_string_lossy().into())
+}
+/// Wine and Proton builds found on this system: `(name, runner path, kind)`.
+pub fn runners() -> Vec<(String, PathBuf, &'static str)> {
+    let Some(home) = directories::BaseDirs::new().map(|d| d.home_dir().to_path_buf()) else {
+        return Vec::new();
+    };
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".local/share"));
+    let config = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+    let flatpak = home.join(".var/app");
+    let steam_flatpak = flatpak.join("com.valvesoftware.Steam");
+    let mut found: Vec<(String, PathBuf, &'static str)> = Vec::new();
+    let mut add = |name: String, path: PathBuf, kind: &'static str| {
+        let real = std::fs::canonicalize(&path).unwrap_or(path.clone());
+        if !found
+            .iter()
+            .any(|(_, p, _)| std::fs::canonicalize(p).ok().as_ref() == Some(&real))
+        {
+            found.push((name, path, kind));
+        }
+    };
+    if let Ok(path) = which::which("wine") {
+        add("wine (sistema)".into(), path, "wine");
+    }
+    for steam in [
+        data.join("Steam"),
+        home.join(".steam/steam"),
+        steam_flatpak.join(".local/share/Steam"),
+        steam_flatpak.join(".steam/steam"),
+    ] {
+        for dir in ["compatibilitytools.d", "steamapps/common"] {
+            let Ok(entries) = std::fs::read_dir(steam.join(dir)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if (dir == "compatibilitytools.d" || name.starts_with("Proton"))
+                    && proton_dist(&entry.path()).is_some()
+                {
+                    add(name, entry.path(), "proton");
+                }
+            }
+        }
+    }
+    // Runner folders that contain a `bin/wine` (Lutris, Bottles, Heroic) or Proton builds.
+    for (label, dir) in [
+        ("Lutris", data.join("lutris/runners/wine")),
+        (
+            "Lutris",
+            flatpak.join("net.lutris.Lutris/data/lutris/runners/wine"),
+        ),
+        ("Bottles", data.join("bottles/runners")),
+        (
+            "Bottles",
+            flatpak.join("com.usebottles.bottles/data/bottles/runners"),
+        ),
+        ("Heroic", config.join("heroic/tools/wine")),
+        ("Heroic", config.join("heroic/tools/proton")),
+        (
+            "Heroic",
+            flatpak.join("com.heroicgameslauncher.hgl/config/heroic/tools/wine"),
+        ),
+        (
+            "Heroic",
+            flatpak.join("com.heroicgameslauncher.hgl/config/heroic/tools/proton"),
+        ),
+        ("Wine", PathBuf::from("/opt")),
+    ] {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if label == "Wine" && !name.starts_with("wine") {
+                continue;
+            }
+            if proton_dist(&path).is_some() {
+                add(format!("{name} ({label})"), path, "proton");
+            } else if path.join("bin/wine").is_file() {
+                add(format!("{name} ({label})"), path.join("bin/wine"), "wine");
+            }
+        }
+    }
+    found.sort_by(|a, b| a.0.cmp(&b.0));
+    found
 }
 pub fn run(command: &mut Command, seconds: u64) -> Result<ExitStatus> {
     let mut child = command.spawn()?;
