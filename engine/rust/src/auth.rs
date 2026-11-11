@@ -45,15 +45,33 @@ pub fn checked(kind: u32, value: &Value) -> Result<Value> {
                 http: result["http_status"].as_i64().map(|s| s as i32),
                 ..Error::new(&format!("STOVE respondió HTTP {}.", result["http_status"]))
             },
-            "code" => Error::new(&format!(
-                "STOVE rechazó la autenticación (código {}).",
-                result["code"]
-            )),
+            "code" | "rejected" => {
+                if result["code"].as_i64() == Some(503100) {
+                    let window = &result["maintenance"];
+                    match window["endDt"].as_i64().map(|ms| {
+                        chrono::DateTime::from_timestamp_millis(ms)
+                            .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
+                    }) {
+                        Some(Some(end)) => Error::new(&format!(
+                            "El juego está en mantenimiento en STOVE hasta el {end} UTC."
+                        )),
+                        _ => Error::new(
+                            "El juego está en mantenimiento en STOVE. Inténtalo de nuevo cuando termine.",
+                        ),
+                    }
+                } else {
+                    Error::new(&format!(
+                        "STOVE rechazó la operación (código {}).",
+                        result["code"]
+                    ))
+                }
+            }
             "network" => Error::new("No se pudo contactar al servicio de autenticación de STOVE."),
             "tokens" => Error::new("STOVE no devolvió los tokens esperados."),
-            _ => Error::new(
-                "STOVE devolvió una respuesta inesperada o la petición no está permitida.",
-            ),
+            _ => Error::new(&format!(
+                "STOVE devolvió una respuesta inesperada o la petición no está permitida ({}).",
+                kind
+            )),
         };
         wipe(&mut result);
         return Err(error);
