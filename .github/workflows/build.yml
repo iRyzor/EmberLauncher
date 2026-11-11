@@ -39,7 +39,9 @@ jobs:
         run: npm run test:engine
       - name: Package desktop
         # DMG bundling (hdiutil/AppleScript) is intermittently flaky on hosted
-        # macOS runners; retry before failing the whole platform.
+        # macOS runners; retry before failing the whole platform. Windows
+        # runners default to PowerShell; force bash so one script works on all.
+        shell: bash
         run: |
           for attempt in 1 2; do
             if npm run package; then
