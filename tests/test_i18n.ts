@@ -98,6 +98,31 @@ test("interpolation is literal and keeps file paths and diagnostic codes intact"
     "STOVE rejected authentication (code 49500).",
   );
   assert.equal(
+    localizeMessage("STOVE rechazó la operación (código -10001).", "en"),
+    "STOVE rejected the operation (code -10001).",
+  );
+  assert.equal(
+    localizeMessage(
+      "El juego está en mantenimiento en STOVE hasta el 2026-11-11 06:00 UTC.",
+      "en",
+    ),
+    "The game is under maintenance on STOVE until 2026-11-11 06:00 UTC.",
+  );
+  assert.equal(
+    localizeMessage(
+      "El juego está en mantenimiento en STOVE. Inténtalo de nuevo cuando termine.",
+      "en",
+    ),
+    "The game is under maintenance on STOVE. Try again once it ends.",
+  );
+  assert.equal(
+    localizeMessage(
+      "STOVE devolvió una respuesta inesperada o la petición no está permitida (envelope).",
+      "en",
+    ),
+    "STOVE returned an unexpected response or the request is not allowed (envelope).",
+  );
+  assert.equal(
     localizeMessage("STOVE respondió HTTP 401.", "en"),
     "STOVE returned HTTP 401.",
   );

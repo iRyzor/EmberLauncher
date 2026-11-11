@@ -74,9 +74,29 @@ const dynamicMessages: [RegExp, MessageKey, string[]][] = [
     ["status"],
   ],
   [
-    /^STOVE rechazó la autenticación \(código (\d+)\)\.$/,
+    /^STOVE rechazó la autenticación \(código (-?\d+)\)\.$/,
     "STOVE rechazó la autenticación (código {code}).",
     ["code"],
+  ],
+  [
+    /^El juego está en mantenimiento en STOVE hasta el (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) UTC\.$/,
+    "El juego está en mantenimiento en STOVE hasta el {end} UTC.",
+    ["end"],
+  ],
+  [
+    /^El juego está en mantenimiento en STOVE\.$/,
+    "El juego está en mantenimiento en STOVE.",
+    [],
+  ],
+  [
+    /^STOVE rechazó la operación \(código (-?\d+)\)\.$/,
+    "STOVE rechazó la operación (código {code}).",
+    ["code"],
+  ],
+  [
+    /^STOVE devolvió una respuesta inesperada o la petición no está permitida \(([a-z_]+)\)\.$/,
+    "STOVE devolvió una respuesta inesperada o la petición no está permitida ({kind}).",
+    ["kind"],
   ],
   [
     /^Descargando WebView2 de Microsoft: ([\d.]+) \/ ([\d.]+) MiB\.$/,

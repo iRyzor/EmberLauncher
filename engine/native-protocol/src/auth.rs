@@ -103,7 +103,27 @@ fn envelope(raw: &[u8]) -> Value {
         error("envelope")
     } else if result["code"].as_i64() != Some(0) {
         let code = result["code"].as_i64();
-        json!({"error":"rejected","code":code})
+        let mut output = json!({"error":"rejected","code":code});
+        // Maintenance windows are user-facing notices the launcher must show.
+        if code == Some(503100) {
+            let mut source = result["data"].clone();
+            if !source.is_object() {
+                source = result["value"]["data"].clone();
+            }
+            if source.is_object() {
+                let mut window = json!({});
+                for name in ["type", "title", "content", "startDt", "endDt"] {
+                    let value = source[name].clone();
+                    if value.is_string() || value.is_i64() || value.is_u64() {
+                        window[name] = value;
+                    }
+                }
+                if window.as_object().is_some_and(|o| !o.is_empty()) {
+                    output["maintenance"] = window;
+                }
+            }
+        }
+        output
     } else if !result["value"].is_object() {
         error("value")
     } else {
@@ -275,6 +295,32 @@ pub unsafe extern "C" fn ember_auth_call(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn maintenance_code_keeps_only_whitelisted_notice_fields() {
+        for (raw, leak) in [
+            (
+                br#"{"code":503100,"message":"SECRET","data":{"type":"REGULAR","title":"T","content":"C","startDt":1,"endDt":2,"token":"SECRET"}}"#.as_slice(),
+                true,
+            ),
+            (
+                br#"{"code":49500,"message":"SECRET","data":{"type":"REGULAR"}}"#.as_slice(),
+                false,
+            ),
+            (
+                br#"{"code":503100,"value":{"access_token":"SECRET"}}"#.as_slice(),
+                false,
+            ),
+        ] {
+            let result = envelope(raw);
+            let window = result["maintenance"].as_object();
+            assert_eq!(window.is_some(), leak);
+            if leak {
+                assert!(result["maintenance"]["token"].is_null());
+                assert_eq!(result["maintenance"]["type"], "REGULAR");
+                assert!(!result.to_string().contains("SECRET"));
+            }
+        }
+    }
     #[test]
     fn errors_never_forward_remote_details() {
         for raw in [
