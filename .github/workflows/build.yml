@@ -38,7 +38,20 @@ jobs:
       - name: Test platform engine
         run: npm run test:engine
       - name: Package desktop
-        run: npm run package
+        # DMG bundling (hdiutil/AppleScript) is intermittently flaky on hosted
+        # macOS runners; retry before failing the whole platform.
+        run: |
+          for attempt in 1 2; do
+            if npm run package; then
+              exit 0
+            fi
+            if [ "$attempt" = 2 ]; then
+              exit 1
+            fi
+            echo "Packaging failed (attempt $attempt); cleaning partial bundles and retrying."
+            rm -rf src-tauri/target/release/bundle
+            sleep 30
+          done
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
       - name: Package portable archive
@@ -59,6 +72,10 @@ jobs:
   linux-runtime:
     name: AppImage runtime (${{ matrix.image }})
     needs: desktop
+    # Run the isolated AppImage checks whenever the Linux desktop leg produced
+    # artifacts, even if an unrelated platform leg (for example macOS packaging)
+    # failed; a missing Linux artifact still fails this job.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
