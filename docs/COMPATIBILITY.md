@@ -26,3 +26,5 @@ New source changes are not included in an existing release unless new artifacts 
 - STOVE protocol or game SDK changes may require an Ember update.
 - An automatic country cannot be determined from a language without a territory or from a UTC offset alone. If the system has neither a recognized timezone nor a regional territory, check its regional settings.
 - New game updates and platform combinations should be reported with their exact version and environment.
+
+Steam Proton builds (for example Proton-GE) are detected automatically, including Flatpak Steam. They contain 32-bit components, so the host needs 32-bit (`i386`) libraries such as FreeType and GnuTLS; without them the WebView2 installer fails with a TLS error. On Debian/Ubuntu, enable the `i386` architecture and install `libfreetype6:i386` and `libgnutls30t64:i386` (or `libgnutls30:i386`).

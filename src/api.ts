@@ -46,6 +46,8 @@ export type Snapshot = {
   native_game?: boolean;
   runtime_prefix?: string | null;
   runner: string;
+  runners?: { name: string; path: string; kind: string }[];
+  env?: string;
   game_installed: boolean;
   fresh_destination?: boolean;
   error?: string;

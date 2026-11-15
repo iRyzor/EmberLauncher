@@ -969,3 +969,20 @@ fn country_is_automatic_and_never_inferred_from_utc_offset_or_language_alone() {
     assert_eq!(region::country(Some("Etc/GMT+4"), "en"), "");
     assert_eq!(region::country(None, "C.UTF-8"), "");
 }
+
+#[test]
+fn extra_environment_parses_and_rejects_prefix_override() {
+    let vars =
+        crate::install::parse_env("# note\n\n__GLX_VENDOR_LIBRARY_NAME=mesa\nDXVK_HUD = fps\n")
+            .unwrap();
+    assert_eq!(
+        vars,
+        vec![
+            ("__GLX_VENDOR_LIBRARY_NAME".to_string(), "mesa".to_string()),
+            ("DXVK_HUD".to_string(), "fps".to_string())
+        ]
+    );
+    assert!(crate::install::parse_env("NOEQUALS").is_err());
+    assert!(crate::install::parse_env("1BAD=x").is_err());
+    assert!(crate::install::parse_env("WINEPREFIX=/tmp/x").is_err());
+}

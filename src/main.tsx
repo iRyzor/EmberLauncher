@@ -48,6 +48,34 @@ function bytes(value: number) {
   if (value >= 1024 ** 2) return `${formatNumber(value / 1024 ** 2, 1)} MB`;
   return `${formatNumber(value / 1024, 1)} KB`;
 }
+function RunnerPicker({
+  state,
+  runner,
+  setRunner,
+}: {
+  state: Snapshot;
+  runner: string;
+  setRunner: (runner: string) => void;
+}) {
+  useLocale();
+  if (state.native_game || !state.runners?.length) return null;
+  return (
+    <label>
+      {t("Versión de Wine o Proton")}
+      <select
+        value={state.runners.some((p) => p.path === runner) ? runner : ""}
+        onChange={(e) => e.target.value && setRunner(e.target.value)}
+      >
+        <option value="">{t("Seleccionar…")}</option>
+        {state.runners.map((p) => (
+          <option key={p.path} value={p.path}>
+            {p.kind === "proton" ? `Proton · ${p.name}` : `Wine · ${p.name}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 function App() {
   const locale = useLocale();
   const [state, setState] = useState(initial),
@@ -60,6 +88,8 @@ function App() {
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [root, setRoot] = useState(""),
+    [prefix, setPrefix] = useState(""),
+    [env, setEnv] = useState(""),
     [runner, setRunner] = useState("wine"),
     [newRoot, setNewRoot] = useState(""),
     [newPrefix, setNewPrefix] = useState(""),
@@ -139,6 +169,12 @@ function App() {
       setRunner(state.runner);
     }
   }, [state.root, state.runner]);
+  useEffect(() => {
+    setPrefix(state.runtime_prefix ?? "");
+  }, [state.runtime_prefix]);
+  useEffect(() => {
+    setEnv(state.env ?? "");
+  }, [state.env]);
   useEffect(() => {
     if (state.suggested_prefix)
       setNewPrefix((current) => current || state.suggested_prefix!);
@@ -1173,6 +1209,21 @@ function App() {
                     }
                   />
                 </label>
+                {!state.native_game && (
+                  <label>
+                    {t("Ejecutable Wine")}
+                    <input
+                      value={runner}
+                      onChange={(e) => setRunner(e.target.value)}
+                      spellCheck={false}
+                    />
+                  </label>
+                )}
+                <RunnerPicker
+                  state={state}
+                  runner={runner}
+                  setRunner={setRunner}
+                />
                 <p>
                   {state.native_game
                     ? t(
@@ -1288,6 +1339,21 @@ function App() {
                     </p>
                   </div>
                 </div>
+                {!state.native_game && (
+                  <label>
+                    {t("Prefijo Wine")}
+                    <input
+                      value={prefix}
+                      onChange={(e) => {
+                        setPrefix(e.target.value);
+                        setRoot(
+                          `${e.target.value.replace(/\/+$/, "")}/drive_c/Smilegate`,
+                        );
+                      }}
+                      spellCheck={false}
+                    />
+                  </label>
+                )}
                 <label>
                   {" "}
                   {t("Carpeta Smilegate")}{" "}
@@ -1308,6 +1374,28 @@ function App() {
                     />
                   </label>
                 )}
+                <RunnerPicker
+                  state={state}
+                  runner={runner}
+                  setRunner={setRunner}
+                />
+                {!state.native_game && (
+                  <label>
+                    {t("Variables de entorno")}
+                    <textarea
+                      value={env}
+                      onChange={(e) => setEnv(e.target.value)}
+                      spellCheck={false}
+                      rows={3}
+                      placeholder="__GLX_VENDOR_LIBRARY_NAME=mesa"
+                    />
+                    <small>
+                      {t(
+                        "Una variable por línea, con el formato NOMBRE=valor.",
+                      )}
+                    </small>
+                  </label>
+                )}
                 <div className="settings-footer">
                   <span>
                     {" "}
@@ -1318,7 +1406,7 @@ function App() {
                   <button
                     className="primary"
                     disabled={operation || state.connected || running}
-                    onClick={() => void call("settings", { root, runner })}
+                    onClick={() => void call("settings", { root, runner, env })}
                   >
                     {" "}
                     {t("Guardar ajustes")}{" "}
