@@ -1482,7 +1482,8 @@ summary:focus-visible {
   font-weight: 650;
 }
 
-.language-settings select {
+.language-settings select,
+.runner-select {
   display: block;
   width: auto;
   max-width: 100%;
@@ -1496,7 +1497,8 @@ summary:focus-visible {
   font-size: 11px;
   color-scheme: dark;
 }
-.language-settings select:focus-visible {
+.language-settings select:focus-visible,
+.runner-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
