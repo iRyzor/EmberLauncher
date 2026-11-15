@@ -1390,9 +1390,8 @@ function App() {
                       placeholder="__GLX_VENDOR_LIBRARY_NAME=mesa"
                     />
                     <small>
-                      {t(
-                        "Una variable por línea, con el formato NOMBRE=valor.",
-                      )}
+                      {t("Una variable por línea, con el formato NOMBRE=valor.")}{" "}
+                      {t("Se aplican a todos los comandos de Wine de Ember.")}
                     </small>
                   </label>
                 )}
