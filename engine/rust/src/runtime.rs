@@ -100,6 +100,25 @@ pub fn default_runner() -> String {
         .map_or("wine".into(), |(_, p, _)| p.to_string_lossy().into())
 }
 /// Wine and Proton builds found on this system: `(name, runner path, kind)`.
+///
+/// The scan touches the filesystem heavily and the UI requests a snapshot every
+/// second, so results are cached briefly and reused across snapshots.
+pub fn runners_cached() -> Vec<(String, PathBuf, &'static str)> {
+    static CACHE: std::sync::Mutex<Option<(Instant, Vec<(String, PathBuf, &'static str)>)>> =
+        std::sync::Mutex::new(None);
+    const TTL: Duration = Duration::from_secs(10);
+    let mut cache = CACHE.lock().unwrap();
+    if let Some((at, runners)) = cache.as_ref() {
+        if at.elapsed() < TTL {
+            return runners.clone();
+        }
+    }
+    let runners = runners();
+    *cache = Some((Instant::now(), runners.clone()));
+    runners
+}
+
+/// Scans Wine and Proton builds installed on this system.
 pub fn runners() -> Vec<(String, PathBuf, &'static str)> {
     let Some(home) = directories::BaseDirs::new().map(|d| d.home_dir().to_path_buf()) else {
         return Vec::new();

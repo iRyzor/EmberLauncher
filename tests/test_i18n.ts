@@ -148,19 +148,113 @@ test("interpolation is literal and keeps file paths and diagnostic codes intact"
   );
   assert.equal(localizeMessage(null), "");
 });
+// A real Rust tokenizer for display-string scanning. The previous regex
+// misparsed raw strings such as `r"\\?\"`, whose backslash-quote content made
+// one match drift across whole regions and swallow later literals.
+function stringLiterals(source: string): string[] {
+  const found: string[] = [];
+  let i = 0;
+  const n = source.length;
+  const word = (position: number) => {
+    while (position < n && /[A-Za-z0-9_]/.test(source[position])) position++;
+    return position;
+  };
+  while (i < n) {
+    if (source[i] === "/" && source[i + 1] === "/") {
+      while (i < n && source[i] !== "\n") i++;
+      continue;
+    }
+    if (source[i] === "/" && source[i + 1] === "*") {
+      let depth = 1;
+      i += 2;
+      while (i < n && depth > 0) {
+        if (source[i] === "/" && source[i + 1] === "*") {
+          depth++;
+          i += 2;
+        } else if (source[i] === "*" && source[i + 1] === "/") {
+          depth--;
+          i += 2;
+        } else i++;
+      }
+      continue;
+    }
+    const rawPrefix = "rbcr".includes(source[i] ?? "")
+      ? (source[i] === "r" ? 1 : 2)
+      : 0;
+    if (
+      rawPrefix &&
+      source[i + rawPrefix - 1] === "r" &&
+      (source[i + rawPrefix] === "#" || source[i + rawPrefix] === '"')
+    ) {
+      let hashes = 0;
+      let k = i + rawPrefix;
+      while (source[k] === "#") {
+        hashes++;
+        k++;
+      }
+      if (source[k] === '"') {
+        const terminator = '"' + "#".repeat(hashes);
+        const end = source.indexOf(terminator, k + 1);
+        i = end === -1 ? n : end + terminator.length;
+        continue;
+      }
+    }
+    if (source[i] === '"') {
+      let value = "";
+      let j = i + 1;
+      while (j < n && source[j] !== '"') {
+        if (source[j] === "\\") {
+          value += source.slice(j, j + 2);
+          j += 2;
+        } else {
+          value += source[j];
+          j++;
+        }
+      }
+      i = j + 1;
+      found.push(value);
+      continue;
+    }
+    if (source[i] === "'") {
+      const next = source[i + 1] ?? "";
+      if (next === "\\" || source[i + 2] === "'") {
+        let j = i + 1;
+        while (j < n) {
+          if (source[j] === "\\") {
+            j += 2;
+            continue;
+          }
+          if (source[j] === "'") {
+            j++;
+            break;
+          }
+          j++;
+        }
+        i = j;
+      } else {
+        i = Math.max(i + 1, word(i + 1)); // lifetimes like 'static
+      }
+      continue;
+    }
+    i++;
+  }
+  return found;
+}
+
 test("all current engine display messages have translations without touching protocol identifiers", () => {
   const excluded = new Set([
     "Chaos Zero Nightmare",
     "DELETE FROM installed_info",
     "DPMS distribution files only",
+    // macOS config folder name, never displayed.
+    "Library/Application Support",
   ]);
   const folder = new URL("../engine/rust/src/", import.meta.url);
   for (const file of readdirSync(folder).filter(
     (file) => file.endsWith(".rs") && file !== "tests.rs",
   )) {
     const text = readFileSync(new URL(file, folder), "utf8");
-    for (const match of text.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
-      const message = match[1];
+    for (const message of stringLiterals(text)) {
       if (
         !/[ áéíóúñ¿]/.test(message) ||
         !/^[A-ZÁÉÍÓÚ¿]/.test(message) ||

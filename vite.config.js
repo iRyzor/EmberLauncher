@@ -6,6 +6,9 @@ export default defineConfig({
     port: 5178,
     strictPort: true,
     watch: {
+      // A validation Wine prefix contains dosdevices symlinks (z: -> /) that
+      // make the watcher scan the whole filesystem; never follow symlinks.
+      followSymlinks: false,
       ignored: [
         "**/src-tauri/**",
         "**/engine/**",
@@ -13,6 +16,9 @@ export default defineConfig({
         "**/.ember-wine-probe-*/**",
         "**/.engine-build/**",
         "**/release/**",
+        "**/.validation-runs/**",
+        "**/node_modules/**",
+        "**/.git/**",
       ],
     },
     proxy: {

@@ -1,5 +1,4 @@
 import packageMetadata from "../package.json" with { type: "json" };
-const launcherVersion = packageMetadata.version;
 import { t, localizeMessage, setLocale, formatNumber } from "./i18n";
 import { useLocale } from "./useLocale";
 import React, { useState, useEffect, useRef } from "react";
@@ -30,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { request, openCreatorProfile, type Snapshot } from "./api";
+import { getVersion } from "@tauri-apps/api/app";
 import "./style.css";
 import { games, type Game } from "./games";
 import { NewsPanel } from "./NewsPanel";
@@ -63,6 +63,7 @@ function RunnerPicker({
     <label>
       {t("Versión de Wine o Proton")}
       <select
+        className="runner-select"
         value={state.runners.some((p) => p.path === runner) ? runner : ""}
         onChange={(e) => e.target.value && setRunner(e.target.value)}
       >
@@ -78,6 +79,7 @@ function RunnerPicker({
 }
 function App() {
   const locale = useLocale();
+  const [launcherVersion, setLauncherVersion] = useState(packageMetadata.version);
   const [state, setState] = useState(initial),
     [page, setPage] = useState("library"),
     [selectedGame, setSelectedGame] = useState<Game | null>(null),
@@ -156,6 +158,13 @@ function App() {
       void observe("poll");
     }, 1000);
     return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    // The installed app version comes from tauri.conf.json, not package.json,
+    // so the footer and about card never drift from the actual build.
+    getVersion()
+      .then(setLauncherVersion)
+      .catch(() => {});
   }, []);
   useEffect(() => {
     if (state.phase === "loading" || restoreChecked.current) return;
@@ -1390,9 +1399,8 @@ function App() {
                       placeholder="__GLX_VENDOR_LIBRARY_NAME=mesa"
                     />
                     <small>
-                      {t(
-                        "Una variable por línea, con el formato NOMBRE=valor.",
-                      )}
+                      {t("Una variable por línea, con el formato NOMBRE=valor.")}{" "}
+                      {t("Se aplican a todos los comandos de Wine de Ember.")}
                     </small>
                   </label>
                 )}
